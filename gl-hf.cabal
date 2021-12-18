@@ -1,0 +1,42 @@
+cabal-version:      3.0
+name:               gl-hf
+version:            0.1.0.0
+synopsis:
+
+-- A longer description of the package.
+-- description:
+homepage:
+
+-- A URL where users can report bugs.
+-- bug-reports:
+license:            NONE
+author:             Sara Fransson
+maintainer:         franssonkai@gmail.com
+
+-- A copyright notice.
+-- copyright:
+category:           Game
+extra-source-files: CHANGELOG.md
+
+executable gl-hf
+    main-is:          Main.hs
+
+    -- Modules included in this executable, other than Main.
+    other-modules:
+      Glhf.Shader
+      Glhf.Env
+      Glhf.Quad
+
+    -- LANGUAGE extensions used by modules in this package.
+    -- other-extensions:
+    build-depends:
+      , base
+      , bytestring
+      , GPipe
+      , GPipe-GLFW
+      , JuicyPixels
+      , lens
+      , mtl
+      , transformers
+    hs-source-dirs:   src
+    default-language: Haskell2010
