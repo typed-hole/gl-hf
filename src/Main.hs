@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NumericUnderscores    #-}
 module Main (main) where
 
@@ -27,8 +28,9 @@ import           Graphics.GPipe              hiding (angle)
 import qualified Graphics.GPipe.Context.GLFW as GLFW
 import           System.CPUTime              (getCPUTime)
 --------------------------------------------------------------------------------
-import           Glhf.Env                    (GlhfEnv (..), Things (..), fps,
-                                              height, mvp, things, triforce,
+import           Glhf.Env                    (Camera (..), GlhfEnv (..),
+                                              Things (..), camera, fps, height,
+                                              mvp, position, things, triforce,
                                               uniforms, width, window)
 import           Glhf.Quad                   (Quad (..), QuadVertex (..),
                                               Thing (..), loadTexture, mkQuad,
@@ -59,8 +61,19 @@ main = runContextT GLFW.defaultHandleConfig $ do
       , _fps = 144
       , _uniforms = uniforms
       , _window = win
+      , _camera = Camera
+        { _cameraPosition = V3 5 5 10
+        }
       }
   shader <- compileShader $ shader uniforms
+
+  GLFW.setKeyCallback win . Just $ \key wat state mods -> do
+    -- TODO: Move tell camera to move
+    case state of
+      GLFW.KeyState'Pressed  -> putStrLn $ show key <> " down"
+      GLFW.KeyState'Released -> putStrLn $ show key <> " up"
+      _                      -> pure ()
+
   mainLoop shader env
 
 mainLoop ::
@@ -91,7 +104,8 @@ renderStep shader env = do
     clearWindowColor (env ^. window) 0.1
   let
     projection = perspective (pi/2) (width/height) 1 100
-    view = lookAt cameraPos cameraDirection up
+    up = V3 0 1 0
+    view = lookAt (env^.camera.position) 0 up
     vp = projection !*! view
 
   let
@@ -107,8 +121,3 @@ renderStep shader env = do
       }
 
   swapWindowBuffers $ env ^. window
-
-  where
-    cameraPos = V3 0 0 10
-    cameraDirection = cameraPos ^-^ V3 0 0 1
-    up = V3 0 1 0

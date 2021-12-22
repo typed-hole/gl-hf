@@ -1,10 +1,9 @@
-{-# LANGUAGE Arrows #-}
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE Arrows               #-}
+{-# LANGUAGE BangPatterns         #-}
+{-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ImportQualifiedPost #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE TypeApplications #-}
 module Glhf.Quad
   ( Quad (..)
   , QuadVertex (..)
@@ -15,30 +14,31 @@ module Glhf.Quad
   ) where
 
 --------------------------------------------------------------------------------
-import Graphics.GPipe
-import Control.Arrow (returnA)
-import Graphics.GPipe.Context.GLFW qualified as GLFW
-import Codec.Picture.Types (PixelRGBA8(..), imagePixels, Image (imageWidth, imageHeight))
-import Data.ByteString qualified as BS
-import Control.Monad.IO.Class (liftIO)
-import Codec.Picture (convertRGBA8)
-import Codec.Picture.Png (decodePng)
-import Data.Word (Word8)
-import Data.Function ((&))
-import Control.Lens.Setter ((.~), (%~))
-import Data.Functor ((<&>))
-import Control.Lens.Fold ((^..))
+import           Codec.Picture               (convertRGBA8)
+import           Codec.Picture.Png           (decodePng)
+import           Codec.Picture.Types         (Image (imageHeight, imageWidth),
+                                              PixelRGBA8 (..), imagePixels)
+import           Control.Arrow               (returnA)
+import           Control.Lens.Fold           ((^..))
+import           Control.Lens.Setter         ((%~), (.~))
+import           Control.Monad.IO.Class      (liftIO)
+import qualified Data.ByteString             as BS
+import           Data.Function               ((&))
+import           Data.Functor                ((<&>))
+import           Data.Word                   (Word8)
+import           Graphics.GPipe
+import qualified Graphics.GPipe.Context.GLFW as GLFW
 --------------------------------------------------------------------------------
 
 data Quad os = Quad
   { toPrimitives :: Render os (PrimitiveArray Triangles QuadVertex)
-  , texture :: Texture2D os (Format RGBAFloat)
-  , model :: M44 Float
+  , texture      :: Texture2D os (Format RGBAFloat)
+  , model        :: M44 Float
   }
 
 data QuadVertex = QuadVertex
-  { position :: B4 Float
-  , uv :: B2 Float
+  { quadVertexPosition :: B4 Float
+  , uv                 :: B2 Float
   }
 
 instance BufferFormat QuadVertex where
@@ -50,8 +50,8 @@ instance BufferFormat QuadVertex where
 
 instance VertexInput QuadVertex where
   type VertexFormat QuadVertex = VertexFormat (B4 Float, B2 Float)
-  toVertex = proc ~QuadVertex {position, uv} -> do
-    pos <- toVertex -< position
+  toVertex = proc ~QuadVertex {quadVertexPosition, uv} -> do
+    pos <- toVertex -< quadVertexPosition
     uv <- toVertex -< uv
     returnA -< (pos, uv)
 
@@ -108,7 +108,7 @@ loadTexture path = do
 ---
 
 data Thing os = Thing
-  { quad :: Quad os
+  { quad   :: Quad os
   , model' :: M44 Float
   }
 

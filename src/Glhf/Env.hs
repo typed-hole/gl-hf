@@ -9,10 +9,11 @@ module Glhf.Env
   ) -} where
 
 --------------------------------------------------------------------------------
-import           Control.Lens.TH (makeLenses)
+import           Control.Lens.Lens (Lens')
+import           Control.Lens.TH   (makeLenses)
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
-import           Glhf.Quad       (Quad, Thing)
+import           Glhf.Quad         (Quad, Thing)
 --------------------------------------------------------------------------------
 
 width :: Num a => a
@@ -30,10 +31,25 @@ data Uniforms os = Uniforms
   }
 makeLenses ''Uniforms
 
+---
+
+class HasPosition a where
+  position :: Lens' a (V3 Float)
+
+data Camera = Camera
+  { _cameraPosition :: V3 Float
+  }
+makeLenses ''Camera
+
+instance HasPosition Camera where
+  position = cameraPosition
+---
+
 data GlhfEnv os = GlhfEnv
   { _fps      :: Integer
   , _things   :: Things os
   , _uniforms :: Uniforms os
   , _window   :: Window os RGBAFloat Depth
+  , _camera   :: Camera
   }
 makeLenses ''GlhfEnv
