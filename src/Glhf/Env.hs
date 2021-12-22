@@ -1,16 +1,18 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Glhf.Env
-  ( GlhfEnv (..)
+{-   ( GlhfEnv (..)
   , Things (..)
   , Uniforms (..)
   , width
   , height
-  ) where
-  
+  ) -} where
+
 --------------------------------------------------------------------------------
-import Graphics.GPipe  
+import           Control.Lens.TH (makeLenses)
+import           Graphics.GPipe
 --------------------------------------------------------------------------------
-import Glhf.Quad (Quad, Thing)
+import           Glhf.Quad       (Quad, Thing)
 --------------------------------------------------------------------------------
 
 width :: Num a => a
@@ -18,16 +20,20 @@ width = 1024
 height :: Num a => a
 height = 768
 
-newtype Things os = Things
-  { triforce :: Thing os
+data Things os = Things
+  { _triforce :: Thing os
   }
+makeLenses ''Things
 
-newtype Uniforms os = Uniforms
-  { mvp :: Buffer os (Uniform (V4 (B4 Float)))
+data Uniforms os = Uniforms
+  { _mvp :: Buffer os (Uniform (V4 (B4 Float)))
   }
+makeLenses ''Uniforms
 
 data GlhfEnv os = GlhfEnv
-  { fps :: forall a. Num a => a
-  , things :: Things os
-  , uniforms :: Uniforms os
+  { _fps      :: Integer
+  , _things   :: Things os
+  , _uniforms :: Uniforms os
+  , _window   :: Window os RGBAFloat Depth
   }
+makeLenses ''GlhfEnv
