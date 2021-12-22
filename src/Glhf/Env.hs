@@ -18,9 +18,8 @@ width = 1024
 height :: Num a => a
 height = 768
 
-data Things os = Things
+newtype Things os = Things
   { triforce :: Thing os
-  , bigTriforce :: Thing os
   }
 
 newtype Uniforms os = Uniforms

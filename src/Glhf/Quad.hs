@@ -61,9 +61,6 @@ scaleXY (V2 x y) = identity
     (V2 x 0)
     (V2 0 y)
 
-rotateZ :: Float -> M33 Float
-rotateZ = fromQuaternion . axisAngle (V3 0 0 1)
-
 mkQuad :: Texture2D os (Format RGBAFloat) -> V2 Float -> ContextT GLFW.Handle os IO (Quad os)
 mkQuad texture size = do
   vertices <- newBuffer 4
@@ -116,7 +113,7 @@ data Thing os = Thing
   }
 
 mkThing :: Quad os -> V3 Float -> Thing os
-mkThing quad (V3 x y z) = Thing
+mkThing quad position = Thing
   { quad
-  , model' = model quad & translation %~ (^+^ V3 x y z)
+  , model' = model quad & translation %~ (^+^ position)
   }

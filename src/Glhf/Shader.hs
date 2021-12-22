@@ -22,7 +22,7 @@ import Glhf.Quad (Quad (), QuadVertex)
 data ShaderInput os = ShaderInput
   { _primitives :: PrimitiveArray Triangles QuadVertex
   , _texture :: Texture2D os (Format RGBAFloat)
-  , _window :: Window os RGBAFloat ()
+  , _window :: Window os RGBAFloat Depth
   }
 makeLenses ''ShaderInput
 
@@ -34,8 +34,14 @@ shader Uniforms {mvp} = do
     transformedPrims = primStream <&> first (mvp !*)
   fragStream <- flip rasterize transformedPrims $ const
     ( Front
-    , ViewPort (V2 0 0) (V2 width height)
-    , DepthRange (-1) 1
+    , ViewPort 
+      { viewPortLowerLeft = V2 0 0
+      , viewPortSize = V2 width height
+      }
+    , DepthRange
+      { minDepth = 0
+      , maxDepth = 1
+      }
     )
   sampler <- newSampler2D $ \input ->
     ( input ^. texture
@@ -56,3 +62,4 @@ shader Uniforms {mvp} = do
     ( input ^. window
     , ContextColorOption (BlendRgbAlpha (FuncAdd, FuncAdd) (rgbFactors, alphaFactors) 0) (pure True)
     )
+
