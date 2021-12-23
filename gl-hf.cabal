@@ -24,14 +24,16 @@ executable gl-hf
     -- Modules included in this executable, other than Main.
     other-modules:
       Glhf.Camera
+      Glhf.Render
       Glhf.Shader
+      Glhf.ECS
       Glhf.Env
-      Glhf.Quad
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:
       , base
+      , containers
       , bytestring
       , GPipe
       , GPipe-GLFW

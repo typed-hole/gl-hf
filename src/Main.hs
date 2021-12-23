@@ -1,10 +1,15 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NumericUnderscores    #-}
-module Main (main) where
+{-# LANGUAGE OverloadedStrings     #-}
+module Main
+  ( main
+  ) where
 
 --------------------------------------------------------------------------------
-import           Codec.Picture               (convertRGB8, convertRGBA8,
+import           Codec.Picture               (Image (imageHeight, imageWidth),
+                                              convertRGB8, convertRGBA8,
                                               imagePixels)
 import           Codec.Picture.Png           (decodePng)
 import           Codec.Picture.Types         (PixelRGB8 (PixelRGB8),
@@ -27,23 +32,25 @@ import qualified Data.ByteString             as BS
 import           Data.Fixed                  (HasResolution (resolution))
 import           Data.Function               ((&))
 import           Data.Functor                ((<&>))
+import qualified Data.Map.Strict             as M
 import           Data.Tuple                  (swap)
-import           Graphics.GPipe              hiding (angle)
+import           Graphics.GPipe
 import qualified Graphics.GPipe.Context.GLFW as GLFW
 import           System.CPUTime              (getCPUTime)
 --------------------------------------------------------------------------------
-import           Glhf.Camera                 (Camera (..),
-                                              SpinDirection (Rest, SpinLeft, SpinRight),
-                                              spinDirection)
-import           Glhf.Env                    (GlhfEnv (..), Things (..), camera,
-                                              fps, height, mvp, things,
-                                              triforce, uniforms, width, window)
-import           Glhf.Quad                   (HasPosition (..), Quad (..),
-                                              QuadVertex (..), Thing (..),
-                                              loadTexture, mkQuad, mkThing,
-                                              texture, toPrimitives)
+import           Glhf.Camera                 (Camera (..), cameraPosition, fov,
+                                              lookDirection)
+import           Glhf.ECS                    (Entity (..),
+                                              Renderable (Renderable))
+import qualified Glhf.ECS                    as ECS
+import           Glhf.Env                    (Components (..), GlhfEnv (..),
+                                              cameras, components, fps, height,
+                                              positions, renderables, uniforms,
+                                              width, window)
+import           Glhf.Render                 (drawEntity, mkPainter,
+                                              texturedQuad)
 import           Glhf.Shader                 (ShaderInput (..), Uniforms (..),
-                                              shader)
+                                              mvp, shader)
 --------------------------------------------------------------------------------
 
 main :: IO ()
@@ -53,46 +60,48 @@ main = runContextT GLFW.defaultHandleConfig $ do
     , GLFW.configHeight = height
     }
   triforceTexture <- loadTexture "./triforce.png"
-  triforce <- mkThing
-    <$> mkQuad triforceTexture (V2 2365 2048 ^* (1/236.5))
-    <*> pure 0
+  let
+    triforce = Entity "triforce"
+  (renderTriforce, triforcePos) <- texturedQuad
+    triforce
+    triforceTexture
+    (V2 2365 2048 ^* (1/236.5))
+
   mvp <- newBuffer 1
-  camera <- liftIO $ newMVar Camera
-    { _cameraPosition = V3 0 0 10
-    , _spinDirection = Rest
-    }
+  positions <- liftIO . newMVar . M.fromList $
+    [ (triforce, triforcePos)
+    ]
+  renderables <- liftIO . newMVar . M.fromList $
+    [ (triforce, renderTriforce)
+    ]
+  let
+    camera = Camera
+      { _cameraEntity = "camera"
+      , _cameraPosition = V3 0 0 10
+      , _lookDirection = V3 0 0 (-1)
+      , _fov = pi/2
+      }
+  cameras <- liftIO . newMVar . M.fromList $
+    [ ("camera", camera)
+    ]
   let
     uniforms = Uniforms
       { _mvp = mvp
       }
     env = GlhfEnv
-      { _things = Things
-        { _triforce = triforce
+      { _components = Components
+        { _positions = positions
+        , _renderables = renderables
+        , _cameras = cameras
         }
       , _fps = 144
       , _uniforms = uniforms
       , _window = win
-      , _camera = camera
       }
   shader <- compileShader $ shader uniforms
 
   GLFW.setKeyCallback win . Just $ \key wat state mods -> do
-    case key of
-      GLFW.Key'Left  ->
-        case state of
-          GLFW.KeyState'Pressed  ->
-            modifyMVar_ camera $ pure . set spinDirection SpinLeft
-          GLFW.KeyState'Released ->
-            modifyMVar_ camera $ pure . set spinDirection Rest
-          _                      -> pure ()
-      GLFW.Key'Right ->
-        case state of
-          GLFW.KeyState'Pressed  ->
-            modifyMVar_ camera $ pure . set spinDirection SpinRight
-          GLFW.KeyState'Released ->
-            modifyMVar_ camera $ pure . set spinDirection Rest
-          _                      -> pure ()
-      _ -> pure ()
+    pure ()
 
   mainLoop shader env
 
@@ -123,32 +132,38 @@ renderStep ::
   -> GlhfEnv os
   -> ContextT GLFW.Handle os IO ()
 renderStep shader env = do
+  Just camera <- liftIO $ M.lookup "camera" <$> readMVar (env^.components.cameras)
   render $ do
-    clearWindowColor (env ^. window) 0.1
-  cam <- liftIO $ modifyMVar (env^.camera) \cam -> do
-    let
-      doSpin = spin case cam^.spinDirection of
-        Rest      -> 0
-        SpinLeft  -> -0.05
-        SpinRight -> 0.05
-      cam' = cam & position %~ doSpin
-    pure (cam', cam')
+    clearWindowColor (env^.window) 0.1
   let
-    projection = perspective (pi/2) (width/height) 1 100
-    up = V3 0 1 0
-    view = lookAt (cam^.position) 0 up
+    projection = perspective (camera^.fov) (width/height) 1 100
+    view = lookAt
+      (camera^.cameraPosition)
+      (camera^.cameraPosition ^+^ camera^.lookDirection)
+      (V3 0 1 0)
     vp = projection !*! view
+    painter = mkPainter shader (env^.window) (env^.uniforms.mvp)
+  positions <- liftIO . readMVar $ env^.components.positions
+  renderables <- liftIO . readMVar $ env^.components.renderables
 
-  let
-    triforceThing = env ^. things . triforce
-    m = model' triforceThing
-  writeBuffer (env ^. uniforms . mvp) 0 [vp !*! m]
-  render $ do
-    triforce <- quad triforceThing^.toPrimitives
-    shader ShaderInput
-      { _primitives = triforce
-      , _texture = quad triforceThing^.texture
-      , _window = env ^. window
-      }
+  drawEntity painter positions renderables vp "triforce"
 
   swapWindowBuffers $ env ^. window
+
+loadTexture :: FilePath -> ContextT GLFW.Handle os IO (Texture2D os (Format RGBAFloat))
+loadTexture path = do
+  liftIO $ putStrLn "Loading texture"
+  (!size, !pixels) <- liftIO $ do
+    putStrLn "Reading texture file"
+    png <- BS.readFile path >>= either fail pure . decodePng
+    let
+      rgba8Img = convertRGBA8 png
+      size = V2 (imageWidth rgba8Img) (imageHeight rgba8Img)
+      pixels = rgba8Img ^.. imagePixels <&> \(PixelRGBA8 r g b a) -> V4 r g b a
+    pure (size, pixels)
+  liftIO $ putStrLn "Creating texture buffer"
+  textureBuffer <- newTexture2D RGBA8 size 1
+  liftIO $ putStrLn "Writing texture to buffer"
+  writeTexture2D textureBuffer 0 0 size pixels
+  liftIO $ putStrLn "Loaded texture!"
+  pure textureBuffer

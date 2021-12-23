@@ -5,6 +5,7 @@ module Glhf.Shader
   ( Uniforms (..)
   , ShaderInput (..)
   , shader
+  , mvp
   ) where
 
 --------------------------------------------------------------------------------
@@ -15,29 +16,31 @@ import           Control.Lens.TH        (makeLenses)
 import           Data.Functor           ((<&>))
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
-import           Glhf.Env               (GlhfEnv (..), Things (..),
-                                         Uniforms (..), height, width)
-import           Glhf.Quad              (Quad, QuadVertex)
---------------------------------------------------------------------------------
 
 data ShaderInput os = ShaderInput
-  { _primitives :: PrimitiveArray Triangles QuadVertex
+  { _primitives :: PrimitiveArray Triangles (B3 Float, B2 Float)
   , _texture    :: Texture2D os (Format RGBAFloat)
   , _window     :: Window os RGBAFloat Depth
   }
 makeLenses ''ShaderInput
+
+newtype Uniforms os = Uniforms
+  { _mvp :: Buffer os (Uniform (V4 (B4 Float)))
+  }
+makeLenses ''Uniforms
 
 shader :: Uniforms os -> Shader os (ShaderInput os) ()
 shader Uniforms {_mvp} = do
   primStream <- toPrimitiveStream $ view primitives
   mvp <- getUniform $ const (_mvp, 0)
   let
-    transformedPrims = primStream <&> first (mvp !*)
+    transformedPrims = primStream
+      <&> first (\(V3 x y z) -> mvp !* V4 x y z 1)
   fragStream <- flip rasterize transformedPrims $ const
     ( FrontAndBack
     , ViewPort
       { viewPortLowerLeft = V2 0 0
-      , viewPortSize = V2 width height
+      , viewPortSize = V2 1024 768 -- TODO: un-hardcode
       }
     , DepthRange
       { minDepth = 0

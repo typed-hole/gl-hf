@@ -3,26 +3,27 @@
 module Glhf.Env
   ( width
   , height
-  , Things (..)
-  , triforce
-  , Uniforms (..)
-  , mvp
+  , Components (..)
+  , positions
+  , renderables
+  , cameras
   , GlhfEnv (..)
   , fps
-  , things
+  , components
   , uniforms
   , window
-  , camera
   ) where
 
 --------------------------------------------------------------------------------
 import           Control.Concurrent.MVar (MVar)
 import           Control.Lens.Lens       (Lens')
 import           Control.Lens.TH         (makeLenses)
+import           Data.Map.Strict         (Map)
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
 import           Glhf.Camera             (Camera)
-import           Glhf.Quad               (HasPosition (..), Quad, Thing)
+import           Glhf.ECS                (Entity, Position, Renderable)
+import           Glhf.Shader             (Uniforms)
 --------------------------------------------------------------------------------
 
 width :: Num a => a
@@ -30,21 +31,17 @@ width = 1024
 height :: Num a => a
 height = 768
 
-data Things os = Things
-  { _triforce :: Thing os
+data Components os = Components
+  { _positions   :: MVar (Map Entity Position)
+  , _renderables :: MVar (Map Entity (Renderable os))
+  , _cameras     :: MVar (Map Entity Camera)
   }
-makeLenses ''Things
-
-data Uniforms os = Uniforms
-  { _mvp :: Buffer os (Uniform (V4 (B4 Float)))
-  }
-makeLenses ''Uniforms
+makeLenses ''Components
 
 data GlhfEnv os = GlhfEnv
-  { _fps      :: Integer
-  , _things   :: Things os
-  , _uniforms :: Uniforms os
-  , _window   :: Window os RGBAFloat Depth
-  , _camera   :: MVar Camera
+  { _fps        :: Integer
+  , _components :: Components os
+  , _uniforms   :: Uniforms os
+  , _window     :: Window os RGBAFloat Depth
   }
 makeLenses ''GlhfEnv

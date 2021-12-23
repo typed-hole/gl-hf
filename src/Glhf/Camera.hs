@@ -1,22 +1,21 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Glhf.Camera
-  ( SpinDirection (..)
-  , Camera (..)
+  ( Camera (..)
   , cameraPosition
-  , spinDirection
+  , lookDirection
+  , fov
   ) where
 
 import           Control.Lens.TH (makeLenses)
-import           Glhf.Quad       (HasPosition (..))
+import           Glhf.ECS        (Entity)
 import           Graphics.GPipe
 
-data SpinDirection = Rest | SpinLeft | SpinRight
-
 data Camera = Camera
-  { _cameraPosition :: V3 Float
-  , _spinDirection  :: SpinDirection
+  { _cameraEntity   :: Entity
+  , _cameraPosition :: V3 Float
+  , _lookDirection  :: V3 Float
+  , _fov            :: Float
   }
 makeLenses ''Camera
 
-instance HasPosition Camera where
-  position = cameraPosition
+
