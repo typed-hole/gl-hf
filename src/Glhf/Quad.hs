@@ -1,6 +1,7 @@
 {-# LANGUAGE Arrows               #-}
 {-# LANGUAGE BangPatterns         #-}
 {-# LANGUAGE NamedFieldPuns       #-}
+{-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -11,6 +12,9 @@ module Glhf.Quad
   , Thing (..)
   , mkThing
   , loadTexture
+  , HasPosition (..)
+  , toPrimitives
+  , texture
   ) where
 
 --------------------------------------------------------------------------------
@@ -20,7 +24,10 @@ import           Codec.Picture.Types         (Image (imageHeight, imageWidth),
                                               PixelRGBA8 (..), imagePixels)
 import           Control.Arrow               (returnA)
 import           Control.Lens.Fold           ((^..))
+import           Control.Lens.Getter         ((^.))
+import           Control.Lens.Lens           (Lens')
 import           Control.Lens.Setter         ((%~), (.~))
+import           Control.Lens.TH             (makeLenses)
 import           Control.Monad.IO.Class      (liftIO)
 import qualified Data.ByteString             as BS
 import           Data.Function               ((&))
@@ -30,16 +37,23 @@ import           Graphics.GPipe
 import qualified Graphics.GPipe.Context.GLFW as GLFW
 --------------------------------------------------------------------------------
 
-data Quad os = Quad
-  { toPrimitives :: Render os (PrimitiveArray Triangles QuadVertex)
-  , texture      :: Texture2D os (Format RGBAFloat)
-  , model        :: M44 Float
-  }
-
 data QuadVertex = QuadVertex
   { quadVertexPosition :: B4 Float
   , uv                 :: B2 Float
   }
+
+data Quad os = Quad
+  { _toPrimitives :: Render os (PrimitiveArray Triangles QuadVertex)
+  , _texture      :: Texture2D os (Format RGBAFloat)
+  , _model        :: M44 Float
+  }
+makeLenses ''Quad
+
+class HasPosition a where
+  position :: Lens' a (V3 Float)
+
+instance HasPosition (Quad os) where
+  position = model . translation
 
 instance BufferFormat QuadVertex where
   type HostFormat QuadVertex = HostFormat (B4 Float, B2 Float)
@@ -79,9 +93,9 @@ mkQuad texture size = do
     center = identity & translation .~ negate (V3 0.5 0.5 0) :: M44 Float
     scale = scaleXY size
   pure Quad
-    { texture
-    , model = scale !*! center
-    , toPrimitives =
+    { _texture = texture
+    , _model = scale !*! center
+    , _toPrimitives =
       toPrimitiveArrayIndexed TriangleList
         <$> newIndexArray indices Nothing
         <*> newVertexArray vertices
@@ -115,5 +129,5 @@ data Thing os = Thing
 mkThing :: Quad os -> V3 Float -> Thing os
 mkThing quad position = Thing
   { quad
-  , model' = model quad & translation %~ (^+^ position)
+  , model' = quad^.model & translation %~ (^+^ position)
   }

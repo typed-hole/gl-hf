@@ -1,5 +1,5 @@
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NumericUnderscores    #-}
 module Main (main) where
 
@@ -12,9 +12,13 @@ import           Codec.Picture.Types         (PixelRGB8 (PixelRGB8),
 import           Control.Applicative         (liftA2)
 import           Control.Arrow               (first, returnA, (>>>))
 import           Control.Concurrent          (threadDelay)
+import           Control.Concurrent.MVar     (modifyMVar, modifyMVar_, newMVar,
+                                              readMVar)
+import           Control.Lens.Combinators    (set)
 import           Control.Lens.Fold           (folded)
 import           Control.Lens.Getter         (view)
 import           Control.Lens.Operators      ((.~), (^.), (^..))
+import           Control.Lens.Setter         (over, (%~))
 import           Control.Monad               (forever, unless)
 import           Control.Monad.IO.Class      (liftIO)
 import           Control.Monad.Reader        (MonadReader (ask), ReaderT (..))
@@ -28,13 +32,16 @@ import           Graphics.GPipe              hiding (angle)
 import qualified Graphics.GPipe.Context.GLFW as GLFW
 import           System.CPUTime              (getCPUTime)
 --------------------------------------------------------------------------------
-import           Glhf.Env                    (Camera (..), GlhfEnv (..),
-                                              Things (..), camera, fps, height,
-                                              mvp, position, things, triforce,
-                                              uniforms, width, window)
-import           Glhf.Quad                   (Quad (..), QuadVertex (..),
-                                              Thing (..), loadTexture, mkQuad,
-                                              mkThing)
+import           Glhf.Camera                 (Camera (..),
+                                              SpinDirection (Rest, SpinLeft, SpinRight),
+                                              spinDirection)
+import           Glhf.Env                    (GlhfEnv (..), Things (..), camera,
+                                              fps, height, mvp, things,
+                                              triforce, uniforms, width, window)
+import           Glhf.Quad                   (HasPosition (..), Quad (..),
+                                              QuadVertex (..), Thing (..),
+                                              loadTexture, mkQuad, mkThing,
+                                              texture, toPrimitives)
 import           Glhf.Shader                 (ShaderInput (..), Uniforms (..),
                                               shader)
 --------------------------------------------------------------------------------
@@ -50,6 +57,10 @@ main = runContextT GLFW.defaultHandleConfig $ do
     <$> mkQuad triforceTexture (V2 2365 2048 ^* (1/236.5))
     <*> pure 0
   mvp <- newBuffer 1
+  camera <- liftIO $ newMVar Camera
+    { _cameraPosition = V3 0 0 10
+    , _spinDirection = Rest
+    }
   let
     uniforms = Uniforms
       { _mvp = mvp
@@ -61,20 +72,32 @@ main = runContextT GLFW.defaultHandleConfig $ do
       , _fps = 144
       , _uniforms = uniforms
       , _window = win
-      , _camera = Camera
-        { _cameraPosition = V3 5 5 10
-        }
+      , _camera = camera
       }
   shader <- compileShader $ shader uniforms
 
   GLFW.setKeyCallback win . Just $ \key wat state mods -> do
-    -- TODO: Move tell camera to move
-    case state of
-      GLFW.KeyState'Pressed  -> putStrLn $ show key <> " down"
-      GLFW.KeyState'Released -> putStrLn $ show key <> " up"
-      _                      -> pure ()
+    case key of
+      GLFW.Key'Left  ->
+        case state of
+          GLFW.KeyState'Pressed  ->
+            modifyMVar_ camera $ pure . set spinDirection SpinLeft
+          GLFW.KeyState'Released ->
+            modifyMVar_ camera $ pure . set spinDirection Rest
+          _                      -> pure ()
+      GLFW.Key'Right ->
+        case state of
+          GLFW.KeyState'Pressed  ->
+            modifyMVar_ camera $ pure . set spinDirection SpinRight
+          GLFW.KeyState'Released ->
+            modifyMVar_ camera $ pure . set spinDirection Rest
+          _                      -> pure ()
+      _ -> pure ()
 
   mainLoop shader env
+
+spin :: Float -> V3 Float -> V3 Float
+spin angle = rotate (axisAngle (V3 0 1 0) angle)
 
 mainLoop ::
      (ShaderInput os -> Render os ())
@@ -102,10 +125,18 @@ renderStep ::
 renderStep shader env = do
   render $ do
     clearWindowColor (env ^. window) 0.1
+  cam <- liftIO $ modifyMVar (env^.camera) \cam -> do
+    let
+      doSpin = spin case cam^.spinDirection of
+        Rest      -> 0
+        SpinLeft  -> -0.05
+        SpinRight -> 0.05
+      cam' = cam & position %~ doSpin
+    pure (cam', cam')
   let
     projection = perspective (pi/2) (width/height) 1 100
     up = V3 0 1 0
-    view = lookAt (env^.camera.position) 0 up
+    view = lookAt (cam^.position) 0 up
     vp = projection !*! view
 
   let
@@ -113,10 +144,10 @@ renderStep shader env = do
     m = model' triforceThing
   writeBuffer (env ^. uniforms . mvp) 0 [vp !*! m]
   render $ do
-    triforce <- toPrimitives . quad $ triforceThing
+    triforce <- quad triforceThing^.toPrimitives
     shader ShaderInput
       { _primitives = triforce
-      , _texture = texture . quad $ triforceThing
+      , _texture = quad triforceThing^.texture
       , _window = env ^. window
       }
 

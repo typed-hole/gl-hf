@@ -23,6 +23,7 @@ executable gl-hf
 
     -- Modules included in this executable, other than Main.
     other-modules:
+      Glhf.Camera
       Glhf.Shader
       Glhf.Env
       Glhf.Quad

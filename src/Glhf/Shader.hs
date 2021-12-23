@@ -34,7 +34,7 @@ shader Uniforms {_mvp} = do
   let
     transformedPrims = primStream <&> first (mvp !*)
   fragStream <- flip rasterize transformedPrims $ const
-    ( Front
+    ( FrontAndBack
     , ViewPort
       { viewPortLowerLeft = V2 0 0
       , viewPortSize = V2 width height
