@@ -62,10 +62,10 @@ texturedQuad :: Entity -> Texture2D os (Format RGBAFloat) -> V2 Float -> Context
 texturedQuad entity texture size = do
   vertices <- newBuffer @_ @(B3 Float, B2 Float) 4
   writeBuffer vertices 0
-    [ (V3 0 0 0, V2 0 1)
-    , (V3 1 0 0, V2 1 1)
-    , (V3 0 1 0, V2 0 0)
-    , (V3 1 1 0, V2 1 0)
+    [ (V3 0 0 2, V2 0 1)
+    , (V3 1 0 2, V2 1 1)
+    , (V3 0 1 2, V2 0 0)
+    , (V3 1 1 2, V2 1 0)
     ]
   indices <- newBuffer @_ @(BPacked Word8) (3*2)
   writeBuffer indices 0

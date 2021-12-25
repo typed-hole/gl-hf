@@ -21,6 +21,10 @@ extra-source-files: CHANGELOG.md
 executable gl-hf
     main-is:          Main.hs
 
+    ghc-options:
+      -threaded
+      -with-rtsopts=-N
+
     -- Modules included in this executable, other than Main.
     other-modules:
       Glhf.Camera

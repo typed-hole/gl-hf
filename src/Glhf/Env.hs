@@ -7,6 +7,7 @@ module Glhf.Env
   , positions
   , renderables
   , cameras
+  , keyboardInputs
   , GlhfEnv (..)
   , fps
   , components
@@ -22,7 +23,8 @@ import           Data.Map.Strict         (Map)
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
 import           Glhf.Camera             (Camera)
-import           Glhf.ECS                (Entity, Position, Renderable)
+import           Glhf.ECS                (Entity, KeyboardInput, Position,
+                                          Renderable)
 import           Glhf.Shader             (Uniforms)
 --------------------------------------------------------------------------------
 
@@ -32,9 +34,10 @@ height :: Num a => a
 height = 768
 
 data Components os = Components
-  { _positions   :: MVar (Map Entity Position)
-  , _renderables :: MVar (Map Entity (Renderable os))
-  , _cameras     :: MVar (Map Entity Camera)
+  { _positions      :: MVar (Map Entity Position)
+  , _renderables    :: MVar (Map Entity (Renderable os))
+  , _cameras        :: MVar (Map Entity Camera)
+  , _keyboardInputs :: MVar (Map Entity (KeyboardInput os))
   }
 makeLenses ''Components
 
