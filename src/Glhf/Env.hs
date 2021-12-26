@@ -7,12 +7,13 @@ module Glhf.Env
   , positions
   , renderables
   , cameras
-  , keyboardInputs
+  , kbmInputs
   , GlhfEnv (..)
   , fps
   , components
   , uniforms
   , window
+  , lastFrameMousePos
   ) where
 
 --------------------------------------------------------------------------------
@@ -23,7 +24,7 @@ import           Data.Map.Strict         (Map)
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
 import           Glhf.Camera             (Camera)
-import           Glhf.ECS                (Entity, KeyboardInput, Position,
+import           Glhf.ECS                (Entity, KbmInput, Position,
                                           Renderable)
 import           Glhf.Shader             (Uniforms)
 --------------------------------------------------------------------------------
@@ -34,17 +35,18 @@ height :: Num a => a
 height = 768
 
 data Components os = Components
-  { _positions      :: MVar (Map Entity Position)
-  , _renderables    :: MVar (Map Entity (Renderable os))
-  , _cameras        :: MVar (Map Entity Camera)
-  , _keyboardInputs :: MVar (Map Entity (KeyboardInput os))
+  { _positions   :: MVar (Map Entity Position)
+  , _renderables :: MVar (Map Entity (Renderable os))
+  , _cameras     :: MVar (Map Entity Camera)
+  , _kbmInputs   :: MVar (Map Entity (KbmInput os))
   }
 makeLenses ''Components
 
 data GlhfEnv os = GlhfEnv
-  { _fps        :: Integer
-  , _components :: Components os
-  , _uniforms   :: Uniforms os
-  , _window     :: Window os RGBAFloat Depth
+  { _fps               :: Integer
+  , _components        :: Components os
+  , _uniforms          :: Uniforms os
+  , _window            :: Window os RGBAFloat Depth
+  , _lastFrameMousePos :: MVar (V2 Double)
   }
 makeLenses ''GlhfEnv

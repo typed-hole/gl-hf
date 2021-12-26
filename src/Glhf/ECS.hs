@@ -10,10 +10,16 @@ module Glhf.ECS
   , Position (..)
   , position
   , model
-  , KeyboardInput (..)
+  , KbmInput (..)
   , kbInputMappings
+  , mouseHandler
+  , MouseHandlerInput (..)
+  , lastFrame
+  , currentFrame
+  , offset
   ) where
 
+import           Control.Lens.Getter               (Getter, to, view)
 import           Control.Lens.Lens                 (Lens')
 import           Control.Lens.Operators            ((.~))
 import           Control.Lens.TH                   (makeLenses)
@@ -61,11 +67,21 @@ position = model.translation
 instance Component Position where
   entity = posEntity
 
-data KeyboardInput os = KeyboardInput
-  { _kbInputEntity   :: Entity
-  , _kbInputMappings :: Map Key (KeyState -> ContextT Handle os IO ())
+data MouseHandlerInput = MouseHandlerInput
+  { _lastFrame    :: V2 Float
+  , _currentFrame :: V2 Float
   }
-makeLenses ''KeyboardInput
+makeLenses ''MouseHandlerInput
 
-instance Component (KeyboardInput os) where
-  entity = kbInputEntity
+offset :: Getter MouseHandlerInput (V2 Float)
+offset = to $ view currentFrame ^-^ view lastFrame
+
+data KbmInput os = KbmInput
+  { _kbmInputEntity  :: Entity
+  , _kbInputMappings :: Map Key (KeyState -> ContextT Handle os IO ())
+  , _mouseHandler    :: MouseHandlerInput -> ContextT Handle os IO ()
+  }
+makeLenses ''KbmInput
+
+instance Component (KbmInput os) where
+  entity = kbmInputEntity
