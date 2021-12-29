@@ -117,7 +117,7 @@ main = runContextT defaultHandleConfig $ do
       Camera
         { _cameraEntity = "player"
         , _cameraPosition = V3 0 0 10
-        , _cameraDirection = normalize $ V3 0.13 0.1 (-1)
+        , _cameraDirection = normalize $ V3 0 0 (-1)
         , _fov = pi / 2
         }
   cameras <-
@@ -126,13 +126,15 @@ main = runContextT defaultHandleConfig $ do
       ]
   setCursorInputMode win CursorInputMode'Hidden
   let
+    moveSpeed = 0.1
     playerInputs = KbmInput
       { _kbmInputEntity = "player"
       , _mouseHandler = \mouseState -> liftIO $ do
         let
+          mouseSensitivity = 0.008
           lookAround cam = cam
-            & cameraDirection %~ rotate (axisAngle (cam^.up) (-0.01 * mouseState^.offset._x))
-            & cameraDirection %~ rotate (axisAngle (cam^.right) (-0.01 * mouseState^.offset._y))
+            & cameraDirection %~ rotate (axisAngle (cam^.up) (-mouseSensitivity * mouseState^.offset._x))
+            & cameraDirection %~ rotate (axisAngle (cam^.right) (-mouseSensitivity * mouseState^.offset._y))
         modifyMVar_ cameras
           $ pure
           . M.alter (over _Just lookAround) "player"
@@ -140,34 +142,62 @@ main = runContextT defaultHandleConfig $ do
         [ ( Key'W
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $ \cams -> pure $
-                  M.alter (over _Just (\cam -> cam & cameraPosition %~ (^+^ 0.1 *^ cam^.cameraDirection))) "player" cams
+                modifyMVar_ cameras $
+                  flip M.alterF "player" . traverse $ \cam ->
+                    pure $ cam
+                      & cameraPosition %~ (^+^ moveSpeed *^ cam^.cameraDirection)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'S
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $ \cams -> pure $
-                  M.alter (over _Just (\cam -> cam & cameraPosition %~ (^-^ 0.1 *^ cam^.cameraDirection))) "player" cams
+                modifyMVar_ cameras $
+                  flip M.alterF "player" . traverse $ \cam ->
+                    pure $ cam
+                      & cameraPosition %~ (^-^ moveSpeed *^ cam^.cameraDirection)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'A
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $ \cams -> pure $
-                  M.alter (over _Just (\cam -> cam & cameraPosition %~ (^-^ 0.1 *^ cam^.right))) "player" cams
+                modifyMVar_ cameras $
+                  flip M.alterF "player" . traverse $ \cam ->
+                    pure $ cam
+                      & cameraPosition %~ (^-^ moveSpeed *^ cam^.right)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'D
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $ \cams -> pure $
-                  M.alter (over _Just (\cam -> cam & cameraPosition %~ (^+^ 0.1*^cam^.right))) "player" cams
+                modifyMVar_ cameras $
+                  flip M.alterF "player" . traverse $ \cam ->
+                    pure $ cam
+                      & cameraPosition %~ (^+^ moveSpeed *^ cam^.right)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
+          )
+        , ( Key'Space
+          , \case
+            KeyState'Pressed -> liftIO $
+              modifyMVar_ cameras $
+                flip M.alterF "player" . traverse $ \cam ->
+                  pure $ cam
+                    & cameraPosition._y %~ (+ moveSpeed)
+            KeyState'Released -> pure ()
+            KeyState'Repeating -> pure ()
+          )
+        , ( Key'C
+          , \case
+            KeyState'Pressed -> liftIO $
+              modifyMVar_ cameras $
+                flip M.alterF "player" . traverse $ \cam ->
+                  pure $ cam
+                    & cameraPosition._y %~ (+ negate moveSpeed)
+            KeyState'Released -> pure ()
+            KeyState'Repeating -> pure ()
           )
         ]
       }
