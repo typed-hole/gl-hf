@@ -21,20 +21,12 @@ module Glhf.ECS
 
 import           Control.Lens.Getter               (Getter, to, view)
 import           Control.Lens.Lens                 (Lens')
-import           Control.Lens.Operators            ((.~))
 import           Control.Lens.TH                   (makeLenses)
-import           Control.Monad                     (guard, unless)
-import           Control.Monad.IO.Class            (liftIO)
-import           Data.Function                     ((&))
 import           Data.Map.Strict                   (Map)
-import qualified Data.Map.Strict                   as M
-import           Data.Maybe                        (isJust, isNothing)
 import           Data.String                       (IsString)
-import           Data.Word                         (Word8)
 import           Graphics.GPipe
 import           Graphics.GPipe.Context.GLFW       (Handle)
-import qualified Graphics.GPipe.Context.GLFW       as GLFW
-import           Graphics.GPipe.Context.GLFW.Input (Key, KeyState, ModifierKeys)
+import           Graphics.GPipe.Context.GLFW.Input (Key, KeyState)
 
 class Component a where
   entity :: Lens' a Entity

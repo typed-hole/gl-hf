@@ -18,7 +18,6 @@ module Glhf.Env
 
 --------------------------------------------------------------------------------
 import           Control.Concurrent.MVar (MVar)
-import           Control.Lens.Lens       (Lens')
 import           Control.Lens.TH         (makeLenses)
 import           Data.Map.Strict         (Map)
 import           Graphics.GPipe

@@ -5,18 +5,15 @@ module Glhf.Render
   , mkPainter
   ) where
 
-import           Control.Lens.Lens           (Lens')
 import           Control.Lens.Operators      ((.~), (^.))
-import           Control.Lens.TH             (makeLenses)
-import           Control.Monad               (guard, unless)
+import           Control.Monad               (unless)
 import           Control.Monad.IO.Class      (liftIO)
 import           Data.Function               ((&))
 import           Data.Map.Strict             (Map)
 import qualified Data.Map.Strict             as M
-import           Data.Maybe                  (isJust, isNothing)
+import           Data.Maybe                  (isJust)
 import           Data.Word                   (Word8)
-import           Glhf.Camera                 (Camera)
-import           Glhf.ECS                    (Component (..), Entity,
+import           Glhf.ECS                    (Entity,
                                               Position (..), Renderable (..),
                                               model, texture, triangles)
 import qualified Glhf.Shader                 as S

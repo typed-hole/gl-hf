@@ -24,6 +24,9 @@ executable gl-hf
     ghc-options:
       -threaded
       -with-rtsopts=-N
+      -Wall
+      -Wcompat
+      -Wno-name-shadowing
 
     -- Modules included in this executable, other than Main.
     other-modules:
@@ -43,7 +46,6 @@ executable gl-hf
       , GPipe-GLFW
       , JuicyPixels
       , lens
-      , mtl
       , transformers
     hs-source-dirs:   src
     default-language: Haskell2010

@@ -12,7 +12,6 @@ module Glhf.Camera
 where
 
 import           Control.Lens.Getter (Getter, to, view, (^.))
-import           Control.Lens.Lens   (Lens', lens)
 import           Control.Lens.TH     (makeLenses)
 import           Data.Function       ((&))
 import           Glhf.ECS            (Component (..), Entity)

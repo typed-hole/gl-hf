@@ -12,34 +12,25 @@ where
 
 --------------------------------------------------------------------------------
 import           Codec.Picture                      (Image (imageHeight, imageWidth),
-                                                     convertRGB8, convertRGBA8,
-                                                     imagePixels)
+                                                     convertRGBA8, imagePixels)
 import           Codec.Picture.Png                  (decodePng)
-import           Codec.Picture.Types                (PixelRGB8 (PixelRGB8),
-                                                     PixelRGBA8 (PixelRGBA8))
-import           Control.Applicative                (liftA2)
-import           Control.Arrow                      (Arrow ((&&&)), first,
-                                                     returnA, (>>>))
+import           Codec.Picture.Types                (PixelRGBA8 (PixelRGBA8))
 import           Control.Concurrent                 (threadDelay)
 import           Control.Concurrent.MVar            (modifyMVar, modifyMVar_,
                                                      newMVar, readMVar)
-import           Control.Lens.Combinators           (set)
-import           Control.Lens.Fold                  (folded)
-import           Control.Lens.Getter                (view)
 import           Control.Lens.Operators             ((.~), (^.), (^..))
 import           Control.Lens.Prism                 (_Just)
 import           Control.Lens.Setter                (over, (%~))
-import           Control.Monad                      (forever, unless, (>=>))
+import           Control.Monad                      (unless)
 import           Control.Monad.IO.Class             (liftIO)
 import           Control.Monad.Trans.Class          (lift)
 import           Control.Monad.Trans.Maybe          (MaybeT (..))
 import qualified Data.ByteString                    as BS
-import           Data.Fixed                         (HasResolution (resolution))
 import           Data.Foldable                      (for_)
 import           Data.Function                      ((&))
 import           Data.Functor                       ((<&>))
 import qualified Data.Map.Strict                    as M
-import           Data.Tuple                         (swap)
+import           Data.Maybe                         (fromMaybe)
 import           Graphics.GPipe
 import           Graphics.GPipe.Context.GLFW        (CursorInputMode (..),
                                                      Handle, configHeight,
@@ -49,7 +40,7 @@ import           Graphics.GPipe.Context.GLFW        (CursorInputMode (..),
                                                      getCursorPos,
                                                      setCursorInputMode)
 import           Graphics.GPipe.Context.GLFW.Input  (Key (..), KeyState (..),
-                                                     getCursorPos, getKey)
+                                                     getKey)
 import           Graphics.GPipe.Context.GLFW.Window (windowShouldClose)
 import           System.CPUTime                     (getCPUTime)
 --------------------------------------------------------------------------------
@@ -60,11 +51,9 @@ import           Glhf.Camera                        (Camera (..),
 import           Glhf.ECS                           (Component (entity),
                                                      Entity (..), KbmInput (..),
                                                      MouseHandlerInput (..),
-                                                     Renderable (..),
                                                      kbInputMappings,
                                                      mouseHandler, offset,
                                                      position)
-import qualified Glhf.ECS                           as ECS
 import           Glhf.Env                           (Components (..),
                                                      GlhfEnv (..), cameras,
                                                      components, fps, height,
@@ -76,7 +65,6 @@ import           Glhf.Render                        (drawEntity, mkPainter,
                                                      texturedQuad)
 import           Glhf.Shader                        (ShaderInput (..),
                                                      Uniforms (..), mvp, shader)
-
 --------------------------------------------------------------------------------
 
 main :: IO ()
@@ -124,7 +112,7 @@ main = runContextT defaultHandleConfig $ do
     liftIO . newMVar . M.fromList $
       [ (camera^.entity, camera)
       ]
-  setCursorInputMode win CursorInputMode'Hidden
+  fromMaybe () <$> setCursorInputMode win CursorInputMode'Hidden
   let
     moveSpeed = 0.1
     playerInputs = KbmInput
@@ -229,9 +217,6 @@ main = runContextT defaultHandleConfig $ do
   shader <- compileShader $ shader uniforms
 
   mainLoop shader env
-
-spin :: Float -> V3 Float -> V3 Float
-spin angle = rotate (axisAngle (V3 0 1 0) angle)
 
 mainLoop ::
   (ShaderInput os -> Render os ()) ->

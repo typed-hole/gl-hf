@@ -11,16 +11,12 @@ module Glhf.Shader
 where
 
 --------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
---------------------------------------------------------------------------------
-import           Control.Arrow          (Arrow ((&&&)), first, (<<<))
+import           Control.Arrow          (first)
 import           Control.Lens.Getter    (view)
 import           Control.Lens.Operators ((^.))
 import           Control.Lens.TH        (makeLenses)
 import           Data.Functor           ((<&>))
 import           Graphics.GPipe
-
 --------------------------------------------------------------------------------
 
 data ShaderInput os = ShaderInput
