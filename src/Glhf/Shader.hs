@@ -55,7 +55,7 @@ shader Uniforms {_mvp} = do
         )
   sampler <- newSampler2D $ \input ->
     ( input ^. texture,
-      SamplerFilter Nearest Nearest Nearest Nothing,
+      SamplerFilter Linear Linear Linear Nothing,
       (V2 ClampToBorder ClampToBorder, V4 1 0 1 1)
     )
   let

@@ -1,0 +1,6 @@
+allow-newer:
+  , wavefront:base
+  , GPipe:linear
+
+packages:
+  gl-hf.cabal
