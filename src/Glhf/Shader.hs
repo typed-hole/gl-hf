@@ -11,10 +11,12 @@ module Glhf.Shader
 where
 
 --------------------------------------------------------------------------------
-import           Control.Arrow          (first)
+--------------------------------------------------------------------------------
+import           Control.Arrow          (first, second)
 import           Control.Lens.Getter    (view)
 import           Control.Lens.Operators ((^.))
 import           Control.Lens.TH        (makeLenses)
+import           Data.Function          ((&))
 import           Data.Functor           ((<&>))
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
@@ -55,23 +57,31 @@ shader Uniforms {_mvp} = do
         )
   sampler <- newSampler2D $ \input ->
     ( input ^. texture,
-      SamplerFilter Linear Linear Linear Nothing,
+      SamplerFilter Nearest Nearest Nearest Nothing,
       (V2 ClampToBorder ClampToBorder, V4 1 0 1 1)
     )
   let
     sampledFragments = sample2D sampler SampleAuto Nothing Nothing
       <$> fragStream
+      & withRasterizedInfo (curry $ second (view _z . rasterizedFragCoord))
+    eqRGB = FuncAdd
+    eqAlpha = FuncAdd
     rgbFactors =
       BlendingFactors
-        { blendFactorSrc = SrcAlpha,
+        { blendFactorSrc = One,
           blendFactorDst = OneMinusSrcAlpha
         }
     alphaFactors =
       BlendingFactors
-        { blendFactorSrc = SrcAlpha,
+        { blendFactorSrc = One,
           blendFactorDst = OneMinusSrcAlpha
         }
-  flip drawWindowColor sampledFragments $ \input ->
-    ( input ^. window,
-      ContextColorOption (BlendRgbAlpha (FuncAdd, FuncAdd) (rgbFactors, alphaFactors) 0) (pure True)
+  flip drawWindowColorDepth sampledFragments $ \input ->
+    ( input ^. window
+    , ContextColorOption (BlendRgbAlpha (eqRGB, eqAlpha) (rgbFactors, alphaFactors) (V4 0 0 0 1)) (pure True)
+    , DepthOption Less True
     )
+
+
+--newPixelRGB = (srcFactRGB black * fragmentRGB) + (destFactRGB black * previousPixelRGB)
+--newPixelA = (srcFactA black * fragmentA) + (destFactA black * previousPixelA)

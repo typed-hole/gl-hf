@@ -93,8 +93,7 @@ main = runContextT defaultHandleConfig $ do
       & entity .~ triforceB
       & position %~ (^+^ V3 2 2 5)
   boxObj <- liftIO $ fromRight (error "bad box") <$> Obj.fromFile "box.obj"
-  boxTexture <- newTexture2D RGBA8 1 maxBound
-  writeTexture2D boxTexture 0 (V2 0 0) (V2 1 1) [V4 1 0 1 1 :: V4 Float]
+  boxTexture <- loadTexture "cube.png"
   (renderBox, boxPos) <- texturedObj
     "box"
     boxTexture
@@ -273,8 +272,8 @@ renderStep ::
 renderStep shader env = do
   Just camera <- liftIO $ M.lookup "player" <$> readMVar (env ^. components . cameras)
   render $ do
-    clearWindowColor (env^.window) 0.1
-    clearWindowDepth (env^.window) 0
+    clearWindowColor (env^.window) 0
+    clearWindowDepth (env^.window) 1
   let
     projection = perspective (camera ^. fov) (width / height) 0.1 100
     view = camera^.viewMatrix
