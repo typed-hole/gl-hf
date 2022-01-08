@@ -44,6 +44,8 @@ import           Graphics.GPipe.Context.GLFW.Input  (Key (..), KeyState (..),
 import           Graphics.GPipe.Context.GLFW.Window (windowShouldClose)
 import           System.CPUTime                     (getCPUTime)
 --------------------------------------------------------------------------------
+import qualified Codec.Wavefront.IO                 as Obj
+import           Data.Either                        (fromRight)
 import           Glhf.Camera                        (Camera (..),
                                                      cameraDirection,
                                                      cameraPosition, fov, right,
@@ -62,7 +64,7 @@ import           Glhf.Env                           (Components (..),
                                                      positions, renderables,
                                                      uniforms, width, window)
 import           Glhf.Render                        (drawEntity, mkPainter,
-                                                     texturedQuad)
+                                                     texturedObj, texturedQuad)
 import           Glhf.Shader                        (ShaderInput (..),
                                                      Uniforms (..), mvp, shader)
 --------------------------------------------------------------------------------
@@ -89,16 +91,26 @@ main = runContextT defaultHandleConfig $ do
     renderTriforceB = renderTriforceA & entity .~ triforceB
     triforcePosB = triforcePosA
       & entity .~ triforceB
-      & position %~ (^+^ V3 2 2 1)
+      & position %~ (^+^ V3 2 2 5)
+  boxObj <- liftIO $ fromRight (error "bad box") <$> Obj.fromFile "box.obj"
+  boxTexture <- newTexture2D RGBA8 1 maxBound
+  writeTexture2D boxTexture 0 (V2 0 0) (V2 1 1) [V4 1 0 1 1 :: V4 Float]
+  (renderBox, boxPos) <- texturedObj
+    "box"
+    boxTexture
+    boxObj
+    (identity & translation .~ V3 10 3 0)
   positions <-
     liftIO . newMVar . M.fromList $
       [ (triforcePosA^.entity, triforcePosA)
       , (triforcePosB^.entity, triforcePosB)
+      , (boxPos^.entity, boxPos)
       ]
   renderables <-
     liftIO . newMVar . M.fromList $
       [ (renderTriforceA^.entity, renderTriforceA)
       , (renderTriforceB^.entity, renderTriforceB)
+      , (renderBox^.entity, renderBox)
       ]
   let
     camera =
@@ -267,12 +279,13 @@ renderStep shader env = do
     projection = perspective (camera ^. fov) (width / height) 0.1 100
     view = camera^.viewMatrix
     vp = projection !*! view
-    painter = mkPainter shader (env ^. window) (env ^. uniforms . mvp)
   positions <- liftIO . readMVar $ env ^. components . positions
   renderables <- liftIO . readMVar $ env ^. components . renderables
+  let
+    painter = mkPainter shader (env^.window) (env^.uniforms.mvp) positions renderables
 
   for_ renderables $ \renderable ->
-    drawEntity painter positions renderables vp (renderable^.entity)
+    drawEntity painter vp (renderable^.entity)
 
   swapWindowBuffers $ env ^. window
 
@@ -282,13 +295,16 @@ loadTexture path = do
   (!size, !pixels) <- liftIO $ do
     putStrLn "Reading texture file"
     png <- BS.readFile path >>= either fail pure . decodePng
-    let rgba8Img = convertRGBA8 png
-        size = V2 (imageWidth rgba8Img) (imageHeight rgba8Img)
-        pixels = rgba8Img ^.. imagePixels <&> \(PixelRGBA8 r g b a) -> V4 r g b a
+    let
+      rgba8Img = convertRGBA8 png
+      size = V2 (imageWidth rgba8Img) (imageHeight rgba8Img)
+      pixels = rgba8Img ^.. imagePixels <&> \(PixelRGBA8 r g b a) -> V4 r g b a
     pure (size, pixels)
   liftIO $ putStrLn "Creating texture buffer"
-  textureBuffer <- newTexture2D RGBA8 size 1
+  textureBuffer <- newTexture2D RGBA8 size maxBound
   liftIO $ putStrLn "Writing texture to buffer"
   writeTexture2D textureBuffer 0 0 size pixels
+  liftIO $ putStrLn "Generating mipmaps"
+  generateTexture2DMipmap textureBuffer
   liftIO $ putStrLn "Loaded texture!"
   pure textureBuffer
