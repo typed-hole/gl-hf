@@ -16,7 +16,10 @@ maintainer:         franssonkai@gmail.com
 -- A copyright notice.
 -- copyright:
 category:           Game
-extra-source-files: CHANGELOG.md
+extra-source-files:
+  CHANGELOG.md
+  cube.png
+  triforce.png
 
 executable gl-hf
     main-is:          Main.hs

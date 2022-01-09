@@ -81,7 +81,3 @@ shader Uniforms {_mvp} = do
     , ContextColorOption (BlendRgbAlpha (eqRGB, eqAlpha) (rgbFactors, alphaFactors) (V4 0 0 0 1)) (pure True)
     , DepthOption Less True
     )
-
-
---newPixelRGB = (srcFactRGB black * fragmentRGB) + (destFactRGB black * previousPixelRGB)
---newPixelA = (srcFactA black * fragmentA) + (destFactA black * previousPixelA)

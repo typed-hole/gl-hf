@@ -118,7 +118,7 @@ texturedObj entity texture obj model = do
         in
           fmap (getLoc &&& getUv) [a, b, c] <> stuff
       Quad a b c d   -> foldFace (Triangle a b c) . foldFace (Triangle a c d)
-      _impossible    -> undefined
+      _impossible    -> error "Neither Trinangle nor Quad"
     vertsAndUvs = foldr foldFace [] (elValue <$> objFaces obj)
   vertexBuffer <- newBuffer @_ @(B3 Float, B2 Float) $ length vertsAndUvs
   writeBuffer vertexBuffer 0 vertsAndUvs
@@ -126,7 +126,7 @@ texturedObj entity texture obj model = do
     renderable = Renderable
       { _renderEntity = entity
       , _triangles = do
-        toPrimitiveArray TriangleList <$>newVertexArray vertexBuffer
+        toPrimitiveArray TriangleList <$> newVertexArray vertexBuffer
       , _texture = texture
       }
     position = Position
@@ -136,4 +136,4 @@ texturedObj entity texture obj model = do
   pure (renderable, position)
   where
     locToV3 (Location x y z _w) = V3 x y z
-    texToV2 (TexCoord u v _) = V2 u v
+    texToV2 (TexCoord u v _) = V2 u (1-v)

@@ -78,7 +78,7 @@ main = runContextT defaultHandleConfig $ do
         { configWidth = width,
           configHeight = height
         }
-  triforceTexture <- loadTexture "./triforce.png"
+  triforceTexture <- loadTexture "triforce.png"
   let
     triforceA = Entity "triforceA"
     triforceB = Entity "triforceB"
@@ -93,7 +93,7 @@ main = runContextT defaultHandleConfig $ do
       & entity .~ triforceB
       & position %~ (^+^ V3 2 2 5)
   boxObj <- liftIO $ fromRight (error "bad box") <$> Obj.fromFile "box.obj"
-  boxTexture <- loadTexture "cube.png"
+  boxTexture <- loadTexture "box.png"
   (renderBox, boxPos) <- texturedObj
     "box"
     boxTexture
@@ -290,20 +290,20 @@ renderStep shader env = do
 
 loadTexture :: FilePath -> ContextT Handle os IO (Texture2D os (Format RGBAFloat))
 loadTexture path = do
-  liftIO $ putStrLn "Loading texture"
+  liftIO $ putStrLn ("Loading texture " <> path)
   (!size, !pixels) <- liftIO $ do
-    putStrLn "Reading texture file"
+    putStrLn ("Reading texture file " <> path)
     png <- BS.readFile path >>= either fail pure . decodePng
     let
       rgba8Img = convertRGBA8 png
       size = V2 (imageWidth rgba8Img) (imageHeight rgba8Img)
       pixels = rgba8Img ^.. imagePixels <&> \(PixelRGBA8 r g b a) -> V4 r g b a
     pure (size, pixels)
-  liftIO $ putStrLn "Creating texture buffer"
+  liftIO $ putStrLn ("Creating texture buffer " <> path)
   textureBuffer <- newTexture2D RGBA8 size maxBound
-  liftIO $ putStrLn "Writing texture to buffer"
+  liftIO $ putStrLn ("Writing texture to buffer " <> path)
   writeTexture2D textureBuffer 0 0 size pixels
-  liftIO $ putStrLn "Generating mipmaps"
+  liftIO $ putStrLn ("Generating mipmaps " <> path)
   generateTexture2DMipmap textureBuffer
-  liftIO $ putStrLn "Loaded texture!"
+  liftIO $ putStrLn ("Loaded texture! " <> path)
   pure textureBuffer
