@@ -63,6 +63,8 @@ import           Glhf.Env                           (Components (..),
                                                      lastFrameMousePos,
                                                      positions, renderables,
                                                      uniforms, width, window)
+import           Glhf.Physics                       (mkPhysicsSystem,
+                                                     runPhysics)
 import           Glhf.Render                        (drawEntity, mkPainter,
                                                      texturedObj, texturedQuad)
 import           Glhf.Shader                        (ShaderInput (..),
@@ -238,6 +240,7 @@ mainLoop shader env = go
     go = do
       startMicro <- (`div` 1_000_000) <$> liftIO getCPUTime
       inputs env
+      physicsStep env
       renderStep shader env
       finishMicro <- (`div` 1_000_000) <$> liftIO getCPUTime
       let elapsedMicro = finishMicro - startMicro
@@ -287,6 +290,12 @@ renderStep shader env = do
     drawEntity painter vp (renderable^.entity)
 
   swapWindowBuffers $ env ^. window
+
+physicsStep ::
+     GlhfEnv os
+  -> ContextT Handle os IO ()
+physicsStep env = do
+  runPhysics (mkPhysicsSystem (env^.components.cameras)) "player"
 
 loadTexture :: FilePath -> ContextT Handle os IO (Texture2D os (Format RGBAFloat))
 loadTexture path = do

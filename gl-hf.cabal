@@ -38,6 +38,7 @@ executable gl-hf
       Glhf.Shader
       Glhf.ECS
       Glhf.Env
+      Glhf.Physics
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
     build-depends:
