@@ -5,10 +5,11 @@ module Glhf.Physics
   , PhysicsSystem (..)
   , mkPhysicsSystem
   ) where
-import           Control.Concurrent.MVar     (MVar, putMVar, readMVar)
-import           Control.Lens.Operators      ((%~), (^.))
+import           Control.Concurrent.MVar     (MVar, modifyMVar_, readMVar)
+import           Control.Lens.Operators      ((+~), (-~), (.~), (^.))
 import           Control.Lens.TH             (makeLenses)
 import           Control.Monad.IO.Class      (liftIO)
+import           Data.Function               ((&))
 import           Data.Map.Strict             (Map)
 import qualified Data.Map.Strict             as M
 import           Glhf.ECS                    (Component (..), Entity, Position,
@@ -34,10 +35,13 @@ mkPhysicsSystem ::
   -> MVar (Map Entity Velocity)
   -> PhysicsSystem os
 mkPhysicsSystem positions velocities = PhysicsSystem $ \entity -> liftIO $ do
-  velos <- readMVar velocities
-  poss <- readMVar positions
-  case M.lookup entity velos of
-    Nothing -> pure ()
-    Just velocity ->
-      putMVar positions $
-        M.alter (fmap (position %~ (+ velocity^.velocityVector))) entity poss
+  v0 <- (M.! entity) <$> readMVar velocities
+  pos0 <- (M.! entity) <$> readMVar positions
+  let
+    pos1 = pos0 & position +~ v0^.velocityVector
+    (pos2, v1) = if pos1^.position._y <= 0 then
+      (pos1 & position._y .~ 0, v0 & velocityVector._y .~ 0)
+    else
+      (pos1, v0 & velocityVector._y -~ 0.005)
+  modifyMVar_ positions $ pure . M.insert entity pos2
+  modifyMVar_ velocities $ pure . M.insert entity v1

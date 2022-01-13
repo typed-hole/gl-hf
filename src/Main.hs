@@ -67,7 +67,7 @@ import           Glhf.Env                           (Components (..),
                                                      width, window)
 import           Glhf.Physics                       (Velocity (..),
                                                      mkPhysicsSystem,
-                                                     runPhysics)
+                                                     runPhysics, velocityVector)
 import           Glhf.Render                        (drawEntity, mkPainter,
                                                      texturedObj, texturedQuad)
 import           Glhf.Shader                        (ShaderInput (..),
@@ -203,10 +203,9 @@ main = runContextT defaultHandleConfig $ do
         , ( Key'Space
           , \case
             KeyState'Pressed -> liftIO $ do
-              modifyMVar_ positions $
-                flip M.alterF "player" . traverse $ \pos ->
-                  pure $ pos
-                    & position._y %~ (+ moveSpeed)
+              modifyMVar_ velocities $
+                flip M.alterF "player" . traverse $ \v ->
+                  pure $ v & velocityVector._y .~ 0.15
             KeyState'Released -> pure ()
             KeyState'Repeating -> pure ()
           )
