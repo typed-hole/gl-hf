@@ -47,12 +47,13 @@ import           System.CPUTime                     (getCPUTime)
 import qualified Codec.Wavefront.IO                 as Obj
 import           Data.Either                        (fromRight)
 import           Glhf.Camera                        (Camera (..),
-                                                     cameraDirection,
-                                                     cameraPosition, fov, right,
-                                                     up, viewMatrix)
+                                                     cameraDirection, fov,
+                                                     getViewMatrix,
+                                                     mkCameraSystem, right, up)
 import           Glhf.ECS                           (Component (entity),
                                                      Entity (..), KbmInput (..),
                                                      MouseHandlerInput (..),
+                                                     Position (Position),
                                                      kbInputMappings,
                                                      mouseHandler, offset,
                                                      position)
@@ -101,9 +102,12 @@ main = runContextT defaultHandleConfig $ do
     boxTexture
     boxObj
     (identity & translation .~ V3 10 3 0)
+  let
+    playerPos = Position "player" (identity & translation .~ V3 0 0 10)
   positions <-
     liftIO . newMVar . M.fromList $
-      [ (triforcePosA^.entity, triforcePosA)
+      [ (playerPos^.entity, playerPos)
+      , (triforcePosA^.entity, triforcePosA)
       , (triforcePosB^.entity, triforcePosB)
       , (boxPos^.entity, boxPos)
       ]
@@ -117,7 +121,6 @@ main = runContextT defaultHandleConfig $ do
     camera =
       Camera
         { _cameraEntity = "player"
-        , _cameraPosition = V3 0 0 10
         , _cameraDirection = normalize $ V3 0 0 (-1)
         , _fov = pi / 2
         }
@@ -143,60 +146,68 @@ main = runContextT defaultHandleConfig $ do
         [ ( Key'W
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $
-                  flip M.alterF "player" . traverse $ \cam ->
-                    pure $ cam
-                      & cameraPosition %~ (^+^ moveSpeed *^ cam^.cameraDirection)
+                cam <- readMVar cameras >>=
+                  maybe (fail "camera not found") pure .  M.lookup "player"
+                modifyMVar_ positions $
+                  flip M.alterF "player" . traverse $ \pos ->
+                    pure $ pos
+                      & position %~ (+ moveSpeed *^ cam^.cameraDirection)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'S
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $
-                  flip M.alterF "player" . traverse $ \cam ->
-                    pure $ cam
-                      & cameraPosition %~ (^-^ moveSpeed *^ cam^.cameraDirection)
+                cam <- readMVar cameras >>=
+                  maybe (fail "camera not found") pure .  M.lookup "player"
+                modifyMVar_ positions $
+                  flip M.alterF "player" . traverse $ \pos ->
+                    pure $ pos
+                      & position %~ subtract (moveSpeed *^ cam^.cameraDirection)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'A
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $
-                  flip M.alterF "player" . traverse $ \cam ->
-                    pure $ cam
-                      & cameraPosition %~ (^-^ moveSpeed *^ cam^.right)
+                cam <- readMVar cameras >>=
+                  maybe (fail "camera not found") pure .  M.lookup "player"
+                modifyMVar_ positions $
+                  flip M.alterF "player" . traverse $ \pos ->
+                    pure $ pos
+                      & position %~ subtract (moveSpeed *^ cam^.right)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'D
           , \case
               KeyState'Pressed -> liftIO $ do
-                modifyMVar_ cameras $
-                  flip M.alterF "player" . traverse $ \cam ->
-                    pure $ cam
-                      & cameraPosition %~ (^+^ moveSpeed *^ cam^.right)
+                cam <- readMVar cameras >>=
+                  maybe (fail "camera not found") pure .  M.lookup "player"
+                modifyMVar_ positions $
+                  flip M.alterF "player" . traverse $ \pos ->
+                    pure $ pos
+                      & position %~ (+ moveSpeed *^ cam^.right)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
         , ( Key'Space
           , \case
-            KeyState'Pressed -> liftIO $
-              modifyMVar_ cameras $
-                flip M.alterF "player" . traverse $ \cam ->
-                  pure $ cam
-                    & cameraPosition._y %~ (+ moveSpeed)
+            KeyState'Pressed -> liftIO $ do
+              modifyMVar_ positions $
+                flip M.alterF "player" . traverse $ \pos ->
+                  pure $ pos
+                    & position._y %~ (+ moveSpeed)
             KeyState'Released -> pure ()
             KeyState'Repeating -> pure ()
           )
         , ( Key'C
           , \case
-            KeyState'Pressed -> liftIO $
-              modifyMVar_ cameras $
-                flip M.alterF "player" . traverse $ \cam ->
-                  pure $ cam
-                    & cameraPosition._y %~ (+ negate moveSpeed)
+            KeyState'Pressed -> liftIO $ do
+              modifyMVar_ positions $
+                flip M.alterF "player" . traverse $ \pos ->
+                  pure $ pos
+                    & position._y %~ subtract moveSpeed
             KeyState'Released -> pure ()
             KeyState'Repeating -> pure ()
           )
@@ -273,13 +284,17 @@ renderStep ::
   GlhfEnv os ->
   ContextT Handle os IO ()
 renderStep shader env = do
-  Just camera <- liftIO $ M.lookup "player" <$> readMVar (env ^. components . cameras)
+  poss <- liftIO . readMVar $ env^.components.positions
+  cameras <- liftIO . readMVar $ env^.components.cameras
+  let
+    cameraSystem = mkCameraSystem poss cameras
+    Just camera = M.lookup "player" cameras
   render $ do
     clearWindowColor (env^.window) 0
     clearWindowDepth (env^.window) 1
   let
     projection = perspective (camera ^. fov) (width / height) 0.1 100
-    view = camera^.viewMatrix
+    view = getViewMatrix cameraSystem "player"
     vp = projection !*! view
   positions <- liftIO . readMVar $ env ^. components . positions
   renderables <- liftIO . readMVar $ env ^. components . renderables
@@ -295,7 +310,7 @@ physicsStep ::
      GlhfEnv os
   -> ContextT Handle os IO ()
 physicsStep env = do
-  runPhysics (mkPhysicsSystem (env^.components.cameras)) "player"
+  runPhysics (mkPhysicsSystem (env^.components.positions)) "player"
 
 loadTexture :: FilePath -> ContextT Handle os IO (Texture2D os (Format RGBAFloat))
 loadTexture path = do

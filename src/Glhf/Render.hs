@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeApplications #-}
 module Glhf.Render
   ( texturedQuad
-  , drawEntity
+  , Painter (..)
   , mkPainter
   , texturedObj
   ) where
@@ -32,14 +32,9 @@ import qualified Glhf.Shader                 as S
 import           Graphics.GPipe
 import           Graphics.GPipe.Context.GLFW (Handle)
 
-newtype Painter os = Painter (M44 Float -> Entity -> ContextT Handle os IO ())
-
-drawEntity ::
-     Painter os
-  -> M44 Float
-  -> Entity
-  -> ContextT Handle os IO ()
-drawEntity (Painter f) = f
+newtype Painter os = Painter
+  { drawEntity :: M44 Float -> Entity -> ContextT Handle os IO ()
+  }
 
 mkPainter ::
      (S.ShaderInput os -> Render os ())
