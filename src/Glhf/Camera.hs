@@ -38,7 +38,9 @@ up = to $ \cam -> cross (cam^.cameraDirection) (right cam)
 right :: Getter Camera (V3 Float)
 right = to $ \cam -> cross (cam^.cameraDirection) (cam^.up)
 
-newtype CameraSystem = CameraSystem { getViewMatrix :: Entity -> M44 Float }
+newtype CameraSystem = CameraSystem
+  { getViewMatrix :: Entity -> M44 Float
+  }
 
 mkCameraSystem :: Map Entity Position -> Map Entity Camera -> CameraSystem
 mkCameraSystem positions cameras = CameraSystem $ fromMaybe identity . \entity -> do

@@ -5,6 +5,7 @@ module Glhf.Env
   , height
   , Components (..)
   , positions
+  , velocities
   , renderables
   , cameras
   , kbmInputs
@@ -25,6 +26,7 @@ import           Graphics.GPipe
 import           Glhf.Camera             (Camera)
 import           Glhf.ECS                (Entity, KbmInput, Position,
                                           Renderable)
+import           Glhf.Physics            (Velocity)
 import           Glhf.Shader             (Uniforms)
 --------------------------------------------------------------------------------
 
@@ -35,6 +37,7 @@ height = 768
 
 data Components os = Components
   { _positions   :: MVar (Map Entity Position)
+  , _velocities  :: MVar (Map Entity Velocity)
   , _renderables :: MVar (Map Entity (Renderable os))
   , _cameras     :: MVar (Map Entity Camera)
   , _kbmInputs   :: MVar (Map Entity (KbmInput os))

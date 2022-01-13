@@ -63,8 +63,10 @@ import           Glhf.Env                           (Components (..),
                                                      kbmInputs,
                                                      lastFrameMousePos,
                                                      positions, renderables,
-                                                     uniforms, width, window)
-import           Glhf.Physics                       (mkPhysicsSystem,
+                                                     uniforms, velocities,
+                                                     width, window)
+import           Glhf.Physics                       (Velocity (..),
+                                                     mkPhysicsSystem,
                                                      runPhysics)
 import           Glhf.Render                        (drawEntity, mkPainter,
                                                      texturedObj, texturedQuad)
@@ -111,6 +113,11 @@ main = runContextT defaultHandleConfig $ do
       , (triforcePosB^.entity, triforcePosB)
       , (boxPos^.entity, boxPos)
       ]
+  let
+    playerVelocity = Velocity "player" (V3 0 0 0)
+  velocities <- liftIO . newMVar . M.fromList $
+    [ (playerVelocity^.entity, playerVelocity)
+    ]
   renderables <-
     liftIO . newMVar . M.fromList $
       [ (renderTriforceA^.entity, renderTriforceA)
@@ -163,9 +170,9 @@ main = runContextT defaultHandleConfig $ do
                   maybe (fail "camera not found") pure .  M.lookup "player"
                 modifyMVar_ positions $
                   flip M.alterF "player" . traverse $ \pos -> do
-                    let backward = normalize $ (cam^.right) `cross` unit _y
+                    let backwards = normalize $ (cam^.right) `cross` unit _y
                     pure $ pos
-                      & position %~ (+ moveSpeed *^ backward)
+                      & position %~ (+ moveSpeed *^ backwards)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
@@ -230,10 +237,11 @@ main = runContextT defaultHandleConfig $ do
       GlhfEnv
         { _components =
           Components
-            { _positions = positions,
-              _renderables = renderables,
-              _cameras = cameras,
-              _kbmInputs = inputs
+            { _positions = positions
+            , _velocities = velocities
+            , _renderables = renderables
+            , _cameras = cameras
+            , _kbmInputs = inputs
             }
         , _fps = 144
         , _uniforms = uniforms
@@ -312,7 +320,11 @@ physicsStep ::
      GlhfEnv os
   -> ContextT Handle os IO ()
 physicsStep env = do
-  runPhysics (mkPhysicsSystem (env^.components.positions)) "player"
+  let
+    physics = mkPhysicsSystem
+      (env^.components.positions)
+      (env^.components.velocities)
+  runPhysics physics "player"
 
 loadTexture :: FilePath -> ContextT Handle os IO (Texture2D os (Format RGBAFloat))
 loadTexture path = do
