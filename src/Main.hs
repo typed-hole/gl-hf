@@ -149,9 +149,10 @@ main = runContextT defaultHandleConfig $ do
                 cam <- readMVar cameras >>=
                   maybe (fail "camera not found") pure .  M.lookup "player"
                 modifyMVar_ positions $
-                  flip M.alterF "player" . traverse $ \pos ->
+                  flip M.alterF "player" . traverse $ \pos -> do
+                    let forward = normalize $ unit _y `cross` (cam^.right)
                     pure $ pos
-                      & position %~ (+ moveSpeed *^ cam^.cameraDirection)
+                      & position %~ (+ moveSpeed *^ forward)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
@@ -161,9 +162,10 @@ main = runContextT defaultHandleConfig $ do
                 cam <- readMVar cameras >>=
                   maybe (fail "camera not found") pure .  M.lookup "player"
                 modifyMVar_ positions $
-                  flip M.alterF "player" . traverse $ \pos ->
+                  flip M.alterF "player" . traverse $ \pos -> do
+                    let backward = normalize $ (cam^.right) `cross` unit _y
                     pure $ pos
-                      & position %~ subtract (moveSpeed *^ cam^.cameraDirection)
+                      & position %~ (+ moveSpeed *^ backward)
               KeyState'Released -> pure ()
               KeyState'Repeating -> pure ()
           )
