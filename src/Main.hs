@@ -20,8 +20,8 @@ import           Control.Concurrent.MVar            (modifyMVar, modifyMVar_,
                                                      newMVar, readMVar)
 import           Control.Lens.Operators             ((.~), (^.), (^..))
 import           Control.Lens.Prism                 (_Just)
-import           Control.Lens.Setter                (over, (%~))
-import           Control.Monad                      (unless)
+import           Control.Lens.Setter                (over, set, (%~))
+import           Control.Monad                      (unless, when)
 import           Control.Monad.IO.Class             (liftIO)
 import           Control.Monad.Trans.Class          (lift)
 import           Control.Monad.Trans.Maybe          (MaybeT (..))
@@ -46,7 +46,7 @@ import           System.CPUTime                     (getCPUTime)
 --------------------------------------------------------------------------------
 import qualified Codec.Wavefront.IO                 as Obj
 import           Data.Either                        (fromRight)
-import           Data.Time.Clock.POSIX              (getPOSIXTime)
+import           Data.Time.Clock.POSIX              (POSIXTime, getPOSIXTime)
 import           Glhf.Camera                        (Camera (..),
                                                      cameraDirection, fov,
                                                      getViewMatrix,
@@ -141,7 +141,7 @@ main = runContextT defaultHandleConfig $ do
       ]
   fromMaybe () <$> setCursorInputMode win CursorInputMode'Hidden
   let
-    moveSpeed = 0.1
+    moveSpeed = 0.5
     playerInputs = KbmInput
       { _kbmInputEntity = "player"
       , _mouseHandler = \mouseState -> liftIO $ do
@@ -209,7 +209,7 @@ main = runContextT defaultHandleConfig $ do
             KeyState'Pressed -> liftIO $ do
               modifyMVar_ velocities $
                 flip M.alterF "player" . traverse $ \v ->
-                  pure $ v & velocityVector._y .~ 0.15
+                  pure $ v & velocityVector._y .~ 10
             KeyState'Released -> pure ()
             KeyState'Repeating -> pure ()
           )
@@ -264,30 +264,36 @@ mainLoop ::
   (ShaderInput os -> Render os ()) ->
   GlhfEnv os ->
   ContextT Handle os IO ()
-mainLoop shader env = go env
+mainLoop shader initialEnv = do
+  liftIO (newMVar initialEnv) >>= go
   where
-    go env = do
-      liftIO . putStrLn $ "main loop start"
+    go envM = do
+      env <- liftIO . readMVar $ envM
       time <- liftIO getPOSIXTime
       let
         timings = env^.loopTimes
-        dRender = time - timings^.lastRender
-        dPhysics = time - timings^.lastPhysics
-        dInputs = time - timings^.lastInputs
+        dRender = realToFrac $ time - timings^.lastRender
+        dPhysics = realToFrac $ time - timings^.lastPhysics
+        dInputs = realToFrac $ time - timings^.lastInputs
+        inputHz = 120 :: Float
+        physicsHz = 120 :: Float
+        renderHz = 60 :: Float -- Infinity
 
-      inputs env
-      physicsStep env
-      renderStep shader env
+      when (dInputs > 1/inputHz) $ do
+        inputs env
+        liftIO . modifyMVar_ envM $
+          pure . set (loopTimes.lastInputs) time
+      when (dPhysics > 1/physicsHz) $ do
+        physicsStep env dPhysics
+        liftIO . modifyMVar_ envM $
+          pure . set (loopTimes.lastPhysics) time
+      when (dRender > 1/renderHz) $ do
+        renderStep shader env
+        liftIO . modifyMVar_ envM $
+          pure . set (loopTimes.lastRender) time
 
-      let
-        env' = env
-          & loopTimes.lastRender .~ time
-          & loopTimes.lastPhysics .~ time
-          & loopTimes.lastInputs .~ time
-      liftIO . putStrLn $ "main loop end"
       closeRequested <- windowShouldClose (env ^. window)
-      unless (closeRequested == Just True) $ go env'
-      liftIO . putStrLn $ "shouldClose"
+      unless (closeRequested == Just True) $ go envM
 
 inputs :: GlhfEnv os -> ContextT Handle os IO ()
 inputs env = do
@@ -335,13 +341,14 @@ renderStep shader env = do
 
 physicsStep ::
      GlhfEnv os
+  -> Float
   -> ContextT Handle os IO ()
-physicsStep env = do
+physicsStep env dt = do
   let
     physics = mkPhysicsSystem
       (env^.components.positions)
       (env^.components.velocities)
-  runPhysics physics "player"
+  runPhysics physics dt "player"
 
 loadTexture :: FilePath -> ContextT Handle os IO (Texture2D os (Format RGBAFloat))
 loadTexture path = do

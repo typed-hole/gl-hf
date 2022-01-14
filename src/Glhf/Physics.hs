@@ -27,21 +27,22 @@ instance Component Velocity where
   entity = velocityEntity
 
 newtype PhysicsSystem os = PhysicsSystem
-  { runPhysics :: Entity -> ContextT Handle os IO ()
+  { runPhysics :: Float -> Entity -> ContextT Handle os IO ()
   }
 
 mkPhysicsSystem ::
      MVar (Map Entity Position)
   -> MVar (Map Entity Velocity)
   -> PhysicsSystem os
-mkPhysicsSystem positions velocities = PhysicsSystem $ \entity -> liftIO $ do
+mkPhysicsSystem positions velocities = PhysicsSystem $ \dt entity -> liftIO $ do
   v0 <- (M.! entity) <$> readMVar velocities
   pos0 <- (M.! entity) <$> readMVar positions
   let
-    pos1 = pos0 & position +~ v0^.velocityVector
-    (pos2, v1) = if pos1^.position._y <= 0 then
-      (pos1 & position._y .~ 0, v0 & velocityVector._y .~ 0)
-    else
-      (pos1, v0 & velocityVector._y -~ 0.005)
+    pos1 = pos0 & position +~ dt *^ v0^.velocityVector
+    (pos2, v1) =
+      if pos1^.position._y <= 0 then
+        (pos1 & position._y .~ 0, v0 & velocityVector._y .~ 0)
+      else
+        (pos1, v0 & velocityVector._y -~ 9.82*dt)
   modifyMVar_ positions $ pure . M.insert entity pos2
   modifyMVar_ velocities $ pure . M.insert entity v1
