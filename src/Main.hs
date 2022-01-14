@@ -46,6 +46,7 @@ import           System.CPUTime                     (getCPUTime)
 --------------------------------------------------------------------------------
 import qualified Codec.Wavefront.IO                 as Obj
 import           Data.Either                        (fromRight)
+import           Data.Time.Clock.POSIX              (getPOSIXTime)
 import           Glhf.Camera                        (Camera (..),
                                                      cameraDirection, fov,
                                                      getViewMatrix,
@@ -58,10 +59,13 @@ import           Glhf.ECS                           (Component (entity),
                                                      mouseHandler, offset,
                                                      position)
 import           Glhf.Env                           (Components (..),
-                                                     GlhfEnv (..), cameras,
+                                                     GlhfEnv (..),
+                                                     LoopTimes (..), cameras,
                                                      components, fps, height,
                                                      kbmInputs,
                                                      lastFrameMousePos,
+                                                     lastInputs, lastPhysics,
+                                                     lastRender, loopTimes,
                                                      positions, renderables,
                                                      uniforms, velocities,
                                                      width, window)
@@ -246,6 +250,11 @@ main = runContextT defaultHandleConfig $ do
         , _uniforms = uniforms
         , _window = win
         , _lastFrameMousePos = lastMousePos
+        , _loopTimes = LoopTimes
+          { _lastRender = 0
+          , _lastPhysics = 0
+          , _lastInputs = 0
+          }
         }
   shader <- compileShader $ shader uniforms
 
@@ -255,21 +264,30 @@ mainLoop ::
   (ShaderInput os -> Render os ()) ->
   GlhfEnv os ->
   ContextT Handle os IO ()
-mainLoop shader env = go
+mainLoop shader env = go env
   where
-    go = do
-      startMicro <- (`div` 1_000_000) <$> liftIO getCPUTime
+    go env = do
+      liftIO . putStrLn $ "main loop start"
+      time <- liftIO getPOSIXTime
+      let
+        timings = env^.loopTimes
+        dRender = time - timings^.lastRender
+        dPhysics = time - timings^.lastPhysics
+        dInputs = time - timings^.lastInputs
+
       inputs env
       physicsStep env
       renderStep shader env
-      finishMicro <- (`div` 1_000_000) <$> liftIO getCPUTime
-      let elapsedMicro = finishMicro - startMicro
-          microsPerFrame = 1_000_000 `div` env ^. fps
-          sleepTime = microsPerFrame - elapsedMicro
-      liftIO $ threadDelay $ fromInteger sleepTime
-      closeRequested <- windowShouldClose (env ^. window)
 
-      unless (closeRequested == Just True) go
+      let
+        env' = env
+          & loopTimes.lastRender .~ time
+          & loopTimes.lastPhysics .~ time
+          & loopTimes.lastInputs .~ time
+      liftIO . putStrLn $ "main loop end"
+      closeRequested <- windowShouldClose (env ^. window)
+      unless (closeRequested == Just True) $ go env'
+      liftIO . putStrLn $ "shouldClose"
 
 inputs :: GlhfEnv os -> ContextT Handle os IO ()
 inputs env = do

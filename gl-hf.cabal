@@ -51,6 +51,7 @@ executable gl-hf
       , lens
       , linear
       , text
+      , time
       , transformers
       , vector
       , wavefront

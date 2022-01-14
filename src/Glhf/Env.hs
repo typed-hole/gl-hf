@@ -9,12 +9,17 @@ module Glhf.Env
   , renderables
   , cameras
   , kbmInputs
+  , LoopTimes (..)
+  , lastRender
+  , lastPhysics
+  , lastInputs
   , GlhfEnv (..)
   , fps
   , components
   , uniforms
   , window
   , lastFrameMousePos
+  , loopTimes
   ) where
 
 --------------------------------------------------------------------------------
@@ -23,6 +28,7 @@ import           Control.Lens.TH         (makeLenses)
 import           Data.Map.Strict         (Map)
 import           Graphics.GPipe
 --------------------------------------------------------------------------------
+import           Data.Time.Clock.POSIX   (POSIXTime)
 import           Glhf.Camera             (Camera)
 import           Glhf.ECS                (Entity, KbmInput, Position,
                                           Renderable)
@@ -44,11 +50,19 @@ data Components os = Components
   }
 makeLenses ''Components
 
+data LoopTimes = LoopTimes
+  { _lastRender  :: POSIXTime
+  , _lastPhysics :: POSIXTime
+  , _lastInputs  :: POSIXTime
+  }
+makeLenses ''LoopTimes
+
 data GlhfEnv os = GlhfEnv
   { _fps               :: Integer
   , _components        :: Components os
   , _uniforms          :: Uniforms os
   , _window            :: Window os RGBAFloat Depth
   , _lastFrameMousePos :: MVar (V2 Double)
+  , _loopTimes         :: LoopTimes
   }
 makeLenses ''GlhfEnv
