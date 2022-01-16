@@ -2,7 +2,6 @@
 {-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE NumericUnderscores    #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
 module Main
@@ -15,7 +14,6 @@ import           Codec.Picture                      (Image (imageHeight, imageWi
                                                      convertRGBA8, imagePixels)
 import           Codec.Picture.Png                  (decodePng)
 import           Codec.Picture.Types                (PixelRGBA8 (PixelRGBA8))
-import           Control.Concurrent                 (threadDelay)
 import           Control.Concurrent.MVar            (modifyMVar, modifyMVar_,
                                                      newMVar, readMVar)
 import           Control.Lens.Operators             ((.~), (^.), (^..))
@@ -42,11 +40,10 @@ import           Graphics.GPipe.Context.GLFW        (CursorInputMode (..),
 import           Graphics.GPipe.Context.GLFW.Input  (Key (..), KeyState (..),
                                                      getKey)
 import           Graphics.GPipe.Context.GLFW.Window (windowShouldClose)
-import           System.CPUTime                     (getCPUTime)
 --------------------------------------------------------------------------------
 import qualified Codec.Wavefront.IO                 as Obj
 import           Data.Either                        (fromRight)
-import           Data.Time.Clock.POSIX              (POSIXTime, getPOSIXTime)
+import           Data.Time.Clock.POSIX              (getPOSIXTime)
 import           Glhf.Camera                        (Camera (..),
                                                      cameraDirection, fov,
                                                      getViewMatrix,
@@ -59,16 +56,13 @@ import           Glhf.ECS                           (Component (entity),
                                                      mouseHandler, offset,
                                                      position)
 import           Glhf.Env                           (Components (..),
-                                                     GlhfEnv (..),
-                                                     LoopTimes (..), cameras,
-                                                     components, fps, height,
+                                                     GlhfEnv (..), cameras,
+                                                     components, height,
                                                      kbmInputs,
                                                      lastFrameMousePos,
-                                                     lastInputs, lastPhysics,
-                                                     lastRender, loopTimes,
-                                                     positions, renderables,
-                                                     uniforms, velocities,
-                                                     width, window)
+                                                     lastUpdate, positions,
+                                                     renderables, uniforms,
+                                                     velocities, width, window)
 import           Glhf.Physics                       (Velocity (..),
                                                      mkPhysicsSystem,
                                                      runPhysics, velocityVector)
@@ -209,7 +203,7 @@ main = runContextT defaultHandleConfig $ do
             KeyState'Pressed -> liftIO $ do
               modifyMVar_ velocities $
                 flip M.alterF "player" . traverse $ \v ->
-                  pure $ v & velocityVector._y .~ 10
+                  pure $ v & velocityVector._y .~ 5
             KeyState'Released -> pure ()
             KeyState'Repeating -> pure ()
           )
@@ -246,15 +240,10 @@ main = runContextT defaultHandleConfig $ do
             , _cameras = cameras
             , _kbmInputs = inputs
             }
-        , _fps = 144
         , _uniforms = uniforms
         , _window = win
         , _lastFrameMousePos = lastMousePos
-        , _loopTimes = LoopTimes
-          { _lastRender = 0
-          , _lastPhysics = 0
-          , _lastInputs = 0
-          }
+        , _lastUpdate = 0
         }
   shader <- compileShader $ shader uniforms
 
@@ -270,27 +259,16 @@ mainLoop shader initialEnv = do
     go envM = do
       env <- liftIO . readMVar $ envM
       time <- liftIO getPOSIXTime
-      let
-        timings = env^.loopTimes
-        dRender = realToFrac $ time - timings^.lastRender
-        dPhysics = realToFrac $ time - timings^.lastPhysics
-        dInputs = realToFrac $ time - timings^.lastInputs
-        inputHz = 120 :: Float
-        physicsHz = 120 :: Float
-        renderHz = 60 :: Float -- Infinity
+      let dt = realToFrac $ time - env^.lastUpdate
 
-      when (dInputs > 1/inputHz) $ do
+      when (dt > 1/60) $ do
         inputs env
+      when (dt > 1/60) $ do
+        physicsStep env dt
         liftIO . modifyMVar_ envM $
-          pure . set (loopTimes.lastInputs) time
-      when (dPhysics > 1/physicsHz) $ do
-        physicsStep env dPhysics
-        liftIO . modifyMVar_ envM $
-          pure . set (loopTimes.lastPhysics) time
-      when (dRender > 1/renderHz) $ do
+          pure . set lastUpdate time
+      when (dt > 0) $ do
         renderStep shader env
-        liftIO . modifyMVar_ envM $
-          pure . set (loopTimes.lastRender) time
 
       closeRequested <- windowShouldClose (env ^. window)
       unless (closeRequested == Just True) $ go envM
